@@ -200,6 +200,16 @@ public class Demo2_1 {
 
 # 垃圾回收
 
+堆空间
+
+JDK1.7：新生代，老年代，永久代
+
+JDK1.8：新生代，老年代，元空间
+
+![](https://oss.javaguide.cn/github/javaguide/java/jvm/hotspot-heap-structure.png)
+
+
+
 ## 如何判断对象可以回收
 
 ### 引用计数法
@@ -239,29 +249,137 @@ public class Demo2_1 {
 
 ### 标记清除
 
+定义：Mark Sweep
 
+* 速度较快
+* 会造成内存碎片
+
+![image-20251102113542020](C:\Users\Qingfeng\AppData\Roaming\Typora\typora-user-images\image-20251102113542020.png)
 
 ### 标记整理
 
+定义：Mark Compact
 
+* 速度慢
+* 没有内存碎片
+
+![image-20251102114100240](C:\Users\Qingfeng\AppData\Roaming\Typora\typora-user-images\image-20251102114100240.png)
 
 ### 复制
 
+定义：Copy
 
+* 不会有内存碎片
+* 需要占用双倍内存空间
+
+![image-20251102115131642](C:\Users\Qingfeng\AppData\Roaming\Typora\typora-user-images\image-20251102115131642.png)
 
 ## 分代垃圾回收
 
+![image-20251102121213449](C:\Users\Qingfeng\AppData\Roaming\Typora\typora-user-images\image-20251102121213449.png)
 
+* 对象首先分配在伊甸园区域
+* 新生代空间不足时，触发minor gc，伊甸园和from存货的对象使用copy复制到to中，存活的对象年龄加1并且交换from to
+* minor gc会引发stop the world，暂停其他用户的线程，等垃圾回收结束，用户线程才恢复运行
+* 当对象寿命超过阈值时，会晋升至老年代，最大寿命是15（4bit）
+* 当老年代空间不足，会先尝试触发minor gc，如果之后空间仍不足，那么触发full gc，STW的时间更长
+
+### 相关VM参数
+
+![image-20251102122112306](C:\Users\Qingfeng\AppData\Roaming\Typora\typora-user-images\image-20251102122112306.png)
 
 ## 垃圾回收器
 
-### 吞吐量优先
+### 串行Serial
 
+* 单线程
+* 堆内存较小，适合个人电脑
 
+![image-20251102132639221](C:\Users\Qingfeng\AppData\Roaming\Typora\typora-user-images\image-20251102132639221.png)
 
-### 响应时间优先
+### 吞吐量优先Parallel
 
+* 多线程
+* 堆内存较大，多核cpu
+* 让单位时间内，STW的时间最短
 
+![image-20251102133707598](C:\Users\Qingfeng\AppData\Roaming\Typora\typora-user-images\image-20251102133707598.png)
+
+### 响应时间优先CMS
+
+* 多线程
+* 堆内存较大，多核cpu
+* 尽可能让单次STW的时间最短
+
+### G1
+
+定义：Garbage First
+
+适用场景：
+
+* 同时注重吞吐量和低延迟，默认的暂停目标是200ms
+* 超大堆内存，会将堆划分为多个大小相等的region
+* 整体上是标记+推理算法，两个区域之间是复制算法
 
 ## 垃圾回收调优
 
+调油的本质是减少`STW`时间
+
+### 调优领域
+
+### 确定目标
+
+### 最快的GC
+
+* 查看full gc前后的内存占用，考虑以下来调优
+  * 数据太多？
+    * `select * from 大表`
+  * 数据表示太臃肿？
+    * 对象图
+    * 对象大小？Integer 24 int 4
+  * 是否存在内存泄漏？
+    * static Map map
+    * 软引用
+    * 硬引用
+    * 第三方缓存实现 redis
+
+### 新生代调优
+
+* 新生代特点
+  * 所有的new操作的内存分配非常廉价
+    * TLAB thread-local allocation buffer
+  * 死亡对象的回收代价是0
+  * 大部分对象用过即死
+  * Minor GC 的时间远远低于 Full GC
+* 幸存区大到能保留【当前活跃对象+需要晋升的对象】
+* 晋升阈值配置得当，让长时间存活对象尽快晋升
+
+### 老年代调优
+
+以CMS为例
+
+* CMS的老年代内存越大越好
+* 先尝试不做调优，如果没有full gc那么已经...，否则先尝试优先调优新生代
+* 观察发生full gc时老年代内存占用，将老年代内存预设调大
+  * XX:CMSInitiatingOccupancyFraction=percent
+
+
+
+# 类加载与字节码技术
+
+## 类文件结构
+
+## 字节码指令
+
+### 入门
+
+### javap工具
+
+### 运行流程
+
+* 原始java代码
+* 编译后的字节码文件
+  * `javap -v HelloWorld.class`
+* 常量池载入运行时常量池
+* 方法字节码载入方法区
+* main线程开始运行，分配栈帧内存
