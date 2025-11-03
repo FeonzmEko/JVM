@@ -383,3 +383,72 @@ JDK1.8：新生代，老年代，元空间
 * 常量池载入运行时常量池
 * 方法字节码载入方法区
 * main线程开始运行，分配栈帧内存
+
+### 方法调用
+
+用对象调用类中静态方法会产生两条不必要的虚拟机字节码指令，所以只推荐用类来调用。
+
+### 多态的原理
+
+当执行`invokevirtual`指令时，
+
+* 先通过栈帧中的对象引用找到对象
+* 分析对象头，找到对象的实际class
+* class结构中有vtable，它在类加载的链接阶段就已经根据方法的重写规则生成好了
+* 查表得到方法的具体地址
+* 执行方法的字节码指令
+
+### 异常处理
+
+#### 为什么finally代码块一定会被执行？
+
+通过`javap -v Target.class`指令反编译成字节码后，可以看到finally代码块所对应的字节码被复制了三份，分别放入try，catch以及catch剩余的异常类型流程里，所以一定会被执行。
+
+```java
+public class Demo3_12_1 {
+    public static void main(String[] args) {
+        int result = test();
+        System.out.println(result);
+    }
+
+    private static int test() {
+        try {
+            int i = 1 / 0;
+            return 10;
+        } finally {
+            // finally内return会吞异常
+            return 20;
+        }
+    }
+}
+```
+
+* 由于finally中的ireturn被插入了所有可能的流程，因此返回结果肯定以finally为准
+* 因此存在finally内return会吞异常的问题
+
+
+
+## 语法糖
+
+
+
+## 类加载阶段
+
+### 加载
+
+![image-20251103192517448](C:\Users\Qingfeng\AppData\Roaming\Typora\typora-user-images\image-20251103192517448.png)
+
+### 链接
+
+* 准备：为static变量分配空间，设置默认值
+  * static变量在JDK 7之前存储于instanceKlass末尾，从JDK 7开始，存储于_java_mirror末尾
+  * static变量分配空间和赋值是两个步骤，分配空间在准备阶段完成，赋值在初始化阶段完成
+  * 如果static变量是final的基本类型，那么编译阶段值就确定了，赋值在准备阶段完成
+  * 如果static变量是final的，但属于引用类型，那么赋值也会在初始化阶段完成
+
+### 解析
+
+解析阶段是虚拟机将常量池内的符号引用替换为直接引用的过程，也就是得到类或者字段、方法在内存中的指针或者偏移量。
+
+### 初始化
+
