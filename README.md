@@ -452,3 +452,184 @@ public class Demo3_12_1 {
 
 ### 初始化
 
+## 类加载器
+
+以JDK8为例：
+
+| 名称                    | 加载的类              | 说明                     |
+| ----------------------- | --------------------- | ------------------------ |
+| Bootstrap ClassLoader   | JAVA_HOME/jre/lib     | 无法直接访问，显示为null |
+| Extension ClassLoader   | JAVA_HOME/jre/lib/ext | 上级为Bootstrap          |
+| Application ClassLoader | classpath             | 上级为Extension          |
+| 自定义类加载            | 自定义                | 上级为Application        |
+
+### 启动类加载器
+
+
+
+###  扩展类加载器
+
+
+
+### 应用程序加载器
+
+
+
+### 双亲委派模型
+
+#### 执行流程
+
+双亲委派模型的实现代码非常简单，逻辑非常清晰，都集中在 `java.lang.ClassLoader` 的 `loadClass()` 中，相关代码如下所示。
+```java
+protected Class<?> loadClass(String name, boolean resolve)
+    throws ClassNotFoundException
+{
+    synchronized (getClassLoadingLock(name)) {
+        //首先，检查该类是否已经加载过
+        Class c = findLoadedClass(name);
+        if (c == null) {
+            //如果 c 为 null，则说明该类没有被加载过
+            long t0 = System.nanoTime();
+            try {
+                if (parent != null) {
+                    //当父类的加载器不为空，则通过父类的loadClass来加载该类
+                    c = parent.loadClass(name, false);
+                } else {
+                    //当父类的加载器为空，则调用启动类加载器来加载该类
+                    c = findBootstrapClassOrNull(name);
+                }
+            } catch (ClassNotFoundException e) {
+                //非空父类的类加载器无法找到相应的类，则抛出异常
+            }
+
+        if (c == null) {
+            //当父类加载器无法加载时，则调用findClass方法来加载该类
+            //用户可通过覆写该方法，来自定义类加载器
+            long t1 = System.nanoTime();
+            c = findClass(name);
+
+            //用于统计类加载器相关的信息
+            sun.misc.PerfCounter.getParentDelegationTime().addTime(t1 - t0);
+            sun.misc.PerfCounter.getFindClassTime().addElapsedTimeFrom(t1);
+            sun.misc.PerfCounter.getFindClasses().increment();
+        }
+    }
+    if (resolve) {
+        //对类进行link操作
+        resolveClass(c);
+    }
+    return c;
+  }
+}
+```
+
+简单而言就是：
+
+每当一个类加载器收到加载请求时，会先把请求转发给父类加载器，父类加载失败，才会在本类加载器中加载
+
+#### 好处
+
+双亲委派模型是 Java 类加载机制的重要组成部分，它通过委派父加载器优先加载类的方式，实现了两个关键的安全目标：
+
+>  避免类的重复加载和防止核心 API 被篡改。
+
+
+
+# 内存模型JMM
+
+## java内存模型
+
+简单来说，JMM定义了一套在多线程读写共享数据时（成员变量，数组）时，对数据的可见性，有序性和原子性的规则和保障。
+
+### 问题分析
+
+无法保证操作的原子性，命令交替执行
+
+### 解决方法
+
+`synchronized`关键字
+
+**线程监管**
+
+![image-20251105163933382](C:\Users\Qingfeng\AppData\Roaming\Typora\typora-user-images\image-20251105163933382.png)
+
+## 可见性
+
+### 退不出的循环
+
+```java
+public class Demo4_2 {
+    static boolean run = true;
+    public static void main(String[] args) throws InterruptedException {
+        Thread t = new Thread(()->{
+            while(run){
+            }
+        });
+
+        t.start();
+        Thread.sleep(1000);
+        run = false; // 线程t不会如预想的停下来
+    }
+}
+```
+
+原因是什么呢？
+
+1. 初始状态，t线程刚开始从主内存读取到了run的值到工作内存
+2. 因为t线程要频繁从主内存读取run值，JIT编译器会将run值缓存到自己的工作内存中，减少对主存中run的访问，提高效率
+3. main线程休眠1s之后，修改run的值，并同步至主存，而t是从自己的工作内存的高速缓存中读取这个变量的值，所以永远是旧值
+
+
+
+### 解决方案
+
+增加`volatile`易变关键字，它可以用来修饰成员变量和静态变量，可以避免线程从自己的工作缓存中查找变量的值，必须到主存中获取他的值，线程操作`volatile`变量都是直接操作主存	
+
+也可以在while语句中加入`synchronized`方法或代码块，会破坏JIT的缓存
+
+
+
+## 有序性
+
+### 诡异的结果
+
+![image-20251105172320057](C:\Users\Qingfeng\AppData\Roaming\Typora\typora-user-images\image-20251105172320057.png)
+
+最后r.r1可能值为1，线程2执行ready=true，切换到线程1，进入if分支，相加为0，在切换回线程2执行num=2
+
+这种现象叫做指令重排，是JIT编译器在运行时的一些优化
+
+### 解决方法
+
+用`volatile`关键字修饰变量可以规避掉指令重排现象
+
+### 有序性理解
+
+**单例模式**
+
+双重校验锁实现对象单例：
+
+```java
+public class Singleton {
+
+    private volatile static Singleton uniqueInstance;
+
+    private Singleton() {
+    }
+
+    public static Singleton getUniqueInstance() {
+       //先判断对象是否已经实例过，没有实例化过才进入加锁代码
+        if (uniqueInstance == null) {
+            //类对象加锁
+            synchronized (Singleton.class) {
+                if (uniqueInstance == null) {
+                    uniqueInstance = new Singleton();
+                }
+            }
+        }
+        return uniqueInstance;
+    }
+}
+```
+
+![image-20251105174944745](C:\Users\Qingfeng\AppData\Roaming\Typora\typora-user-images\image-20251105174944745.png)
