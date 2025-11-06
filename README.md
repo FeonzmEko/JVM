@@ -633,3 +633,26 @@ public class Singleton {
 ```
 
 ![image-20251105174944745](C:\Users\Qingfeng\AppData\Roaming\Typora\typora-user-images\image-20251105174944745.png)
+
+## CAS与原子类
+
+### CAS
+
+CAS即Compare and Swap,体现了乐观锁的思想
+
+![image-20251106105045055](C:\Users\Qingfeng\AppData\Roaming\Typora\typora-user-images\image-20251106105045055.png)
+
+获取共享变量时，为保证变量的可见性，需要用`volatile`修饰，，结合CAS和volatile可以实现无锁并发，适用于竞争不激烈，多核CPU或者写少读多
+
+* 没哟synchronzied，所以线程不会被阻塞，效率提升原因之一
+* 如果竞争激烈，重试频繁发生，效率会受很大影响
+
+### 乐观锁悲观锁
+
+### 原子操作类
+
+
+
+## synchronized优化
+
+见juc并发编程
